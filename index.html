@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>বাংলাদেশ ভ্রমণ ম্যাপ</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f6f9;
+      margin: 0;
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .card {
+      background: #ffffff;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      width: 100%;
+      max-width: 500px;
+      text-align: center;
+    }
+    h1 {
+      color: #1b5e20;
+      font-size: 22px;
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+    .stats {
+      font-size: 16px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      background: #e8f5e9;
+      padding: 12px;
+      border-radius: 10px;
+      color: #2e7d32;
+    }
+    #map {
+      height: 480px;
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid #e0e0e0;
+      background: #eef2f5;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h1>বাংলাদেশ ভ্রমণ ম্যাপ</h1>
+  <div class="stats">
+    ঘোরা হয়েছে: <span id="visited-count">০</span>/৬৪ টি জেলা (<span id="percentage">০.০</span>%)
+  </div>
+  <div id="map"></div>
+</div>
+
+<script>
+  function toBanglaNumber(num) {
+    const banglaDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+    return num.toString().replace(/\d/g, digit => banglaDigits[digit]);
+  }
+
+  let visitedDistricts = new Set(JSON.parse(localStorage.getItem('my_visited_districts')) || []);
+
+  const map = L.map('map', {
+    center: [23.6850, 90.3563],
+    zoom: 7,
+    zoomControl: true
+  });
+
+  let geojsonLayer;
+
+  fetch('https://raw.githubusercontent.com/fahimshaportal/bangladesh-geojson/master/bd-districts.json')
+    .then(response => response.json())
+    .then(data => {
+      geojsonLayer = L.geoJSON(data, {
+        style: styleFeature,
+        onEachFeature: onEachFeature
+      }).addTo(map);
+
+      updateStats();
+    });
+
+  function styleFeature(feature) {
+    const districtName = feature.properties.bnname || feature.properties.name;
+    const isVisited = visitedDistricts.has(districtName);
+
+    return {
+      fillColor: isVisited ? '#2e7d32' : '#cbd5e1',
+      weight: 1.5,
+      opacity: 1,
+      color: '#ffffff',
+      fillOpacity: 0.85
+    };
+  }
+
+  function onEachFeature(feature, layer) {
+    const districtName = feature.properties.bnname || feature.properties.name;
+
+    layer.bindTooltip(districtName, { permanent: false, direction: 'center' });
+
+    layer.on({
+      click: () => {
+        if (visitedDistricts.has(districtName)) {
+          visitedDistricts.delete(districtName);
+        } else {
+          visitedDistricts.add(districtName);
+        }
+        localStorage.setItem('my_visited_districts', JSON.stringify([...visitedDistricts]));
+        geojsonLayer.setStyle(styleFeature);
+        updateStats();
+      }
+    });
+  }
+
+  function updateStats() {
+    const count = visitedDistricts.size;
+    const percentage = ((count / 64) * 100).toFixed(1);
+    document.getElementById('visited-count').textContent = toBanglaNumber(count);
+    document.getElementById('percentage').textContent = toBanglaNumber(percentage);
+  }
+</script>
+
+</body>
+</html>
